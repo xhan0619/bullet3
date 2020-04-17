@@ -220,7 +220,7 @@ void btDeformableBodySolver::computeStep(TVStack& ddv, const TVStack& residual)
     if (m_useProjection)
         m_cg.solve(*m_objective, ddv, residual, false);
     else
-        m_cr.solve(*m_objective, ddv, residual, false);
+        m_cr.solve(*m_objective, ddv, residual, true);
 }
 
 void btDeformableBodySolver::reinitialize(const btAlignedObjectArray<btSoftBody *>& softBodies, btScalar dt)

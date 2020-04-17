@@ -207,7 +207,7 @@ public:
     bool m_useStrainLimiting;
     btDeformableFaceRigidContactConstraint(const btSoftBody::DeformableFaceRigidContact& contact, const btContactSolverInfo& infoGlobal, bool useStrainLimiting);
     btDeformableFaceRigidContactConstraint(const btDeformableFaceRigidContactConstraint& other);
-    btDeformableFaceRigidContactConstraint(): m_useStrainLimiting(false) {}
+    btDeformableFaceRigidContactConstraint(): m_face(0), m_useStrainLimiting(false) {}
     virtual ~btDeformableFaceRigidContactConstraint()
     {
     }
@@ -225,6 +225,8 @@ public:
     }
     
     virtual void applyImpulse(const btVector3& impulse);
+    
+    void updatePenetration();
 };
 
 //

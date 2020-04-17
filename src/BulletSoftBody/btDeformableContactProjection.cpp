@@ -40,13 +40,21 @@ btScalar btDeformableContactProjection::update(btCollisionObject** deformableBod
 				btDeformableNodeAnchorConstraint& constraint = m_nodeAnchorConstraints[j][k];
 				btScalar localResidualSquare = constraint.solveConstraint(infoGlobal);
 				residualSquare = btMax(residualSquare, localResidualSquare);
-			}
+            }
+			// printf("===========================\n");
 			for (int k = 0; k < m_faceRigidConstraints[j].size(); ++k)
 			{
 				btDeformableFaceRigidContactConstraint& constraint = m_faceRigidConstraints[j][k];
 				btScalar localResidualSquare = constraint.solveConstraint(infoGlobal);
+				// printf("Constraint %d, penetration = %f, residual = %f \n", k, constraint.m_penetration, localResidualSquare);
 				residualSquare = btMax(residualSquare, localResidualSquare);
 			}
+			for (int k = 0; k < m_faceRigidConstraints[j].size(); ++k)
+			{
+				btDeformableFaceRigidContactConstraint& constraint = m_faceRigidConstraints[j][k];
+				constraint.updatePenetration();
+			}
+			// printf("===========================\n");
 			for (int k = 0; k < m_deformableConstraints[j].size(); ++k)
 			{
 				btDeformableFaceNodeContactConstraint& constraint = m_deformableConstraints[j][k];
