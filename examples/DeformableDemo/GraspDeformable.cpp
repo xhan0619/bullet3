@@ -208,8 +208,8 @@ void GraspDeformable::initPhysics()
         bool canSleep = false;
         bool selfCollide = true;
         int numLinks = 2;
-        btVector3 linkHalfExtents(.1, .2, .04);
-        btVector3 baseHalfExtents(.1, 0.02, .2);
+        btVector3 linkHalfExtents(.1, .2, .02);
+        btVector3 baseHalfExtents(.1, 0.02, .01);
         btMultiBody* mbC = createFeatherstoneMultiBody(getDeformableDynamicsWorld(), btVector3(0.f, .7f,0.f), linkHalfExtents, baseHalfExtents, false);
         
         mbC->setCanSleep(canSleep);
@@ -354,7 +354,7 @@ void GraspDeformable::initPhysics()
 
         psb->getCollisionShape()->setMargin(0.01);
         psb->generateBendingConstraints(2);
-        psb->setTotalMass(1);
+        psb->setTotalMass(.01);
         psb->setSpringStiffness(10);
         psb->setDampingCoefficient(0.05);
         psb->m_cfg.kKHR = 1; // collision hardness with kinematic objects
@@ -366,7 +366,7 @@ void GraspDeformable::initPhysics()
 //        psb->m_cfg.collisions |= btSoftBody::fCollision::VF_DD;
         getDeformableDynamicsWorld()->addSoftBody(psb);
 //        getDeformableDynamicsWorld()->addForce(psb, new btDeformableMassSpringForce(.0,0.0, true));
-        getDeformableDynamicsWorld()->addForce(psb, new btDeformableMassSpringForce(10,1, true));
+        getDeformableDynamicsWorld()->addForce(psb, new btDeformableMassSpringForce(.2,.02, true));
         getDeformableDynamicsWorld()->addForce(psb, new btDeformableGravityForce(gravity));
     }
     
@@ -465,8 +465,8 @@ btMultiBody* GraspDeformable::createFeatherstoneMultiBody(btMultiBodyDynamicsWor
     
     //y-axis assumed up
     btAlignedObjectArray<btVector3> parentComToCurrentCom;
-    parentComToCurrentCom.push_back(btVector3(0, -linkHalfExtents[1] * 8.f, -baseHalfExtents[2] * 4.f));
-    parentComToCurrentCom.push_back(btVector3(0, -linkHalfExtents[1] * 8.f, +baseHalfExtents[2] * 4.f));//par body's COM to cur body's COM offset
+    parentComToCurrentCom.push_back(btVector3(0, -linkHalfExtents[1] * 8.f, -baseHalfExtents[2] * 2.f));
+    parentComToCurrentCom.push_back(btVector3(0, -linkHalfExtents[1] * 8.f, +baseHalfExtents[2] * 2.f));//par body's COM to cur body's COM offset
     
     btVector3 currentPivotToCurrentCom(0, -linkHalfExtents[1]*8.f, 0);                         //cur body's COM to cur body's PIV offset
     
