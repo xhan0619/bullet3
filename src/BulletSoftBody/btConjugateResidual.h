@@ -108,9 +108,9 @@ public:
             // temp_p = beta*temp_p + temp_r;
             temp_p = multAndAdd(beta, temp_p, temp_r);
         }
-        if (verbose)
+        if (1)
         {
-            std::cout << "ConjugateResidual max iterations reached " << max_iterations << std::endl;
+            std::cout << "ConjugateResidual max iterations reached " << max_iterations << ", residual = "<<best_r<< std::endl;
         }
         x = best_x;
         return max_iterations;

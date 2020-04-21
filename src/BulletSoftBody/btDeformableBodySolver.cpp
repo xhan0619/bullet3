@@ -18,7 +18,7 @@
 #include "btDeformableBodySolver.h"
 #include "btSoftBodyInternals.h"
 #include "LinearMath/btQuickprof.h"
-static const int kMaxConjugateGradientIterations = 50;
+static const int kMaxConjugateGradientIterations = 200;
 btDeformableBodySolver::btDeformableBodySolver()
 : m_numNodes(0)
 , m_cg(kMaxConjugateGradientIterations)
@@ -56,8 +56,9 @@ void btDeformableBodySolver::solveDeformableConstraints(btScalar solverdt)
             computeStep(x, rhs);
             for (int i = 0; i<m_dv.size(); ++i)
             {
-                    m_dv[i] = x[i];
+                m_dv[i] = x[i];
             }
+            calculateContactForce(rhs);
         }
         updateVelocity();
     }
@@ -119,6 +120,28 @@ void btDeformableBodySolver::solveDeformableConstraints(btScalar solverdt)
             }
         }
         updateVelocity();
+    }
+}
+
+void btDeformableBodySolver::calculateContactForce(const TVStack& rhs)
+{
+    TVStack contactForce;
+    contactForce.resize(m_dv.size());
+    m_objective->calculateContactForce(m_dv, rhs, contactForce);
+    int counter = 0;
+    for (int i = 0; i < m_softBodies.size(); ++i)
+    {
+        btSoftBody* psb = m_softBodies[i];
+        if (!psb->isActive())
+        {
+            counter += psb->m_nodes.size();
+            continue;
+        }
+        for (int j = 0; j < psb->m_nodes.size(); ++j)
+        {
+            psb->m_nodes[j].m_contactDv = psb->m_nodes[j].m_im * contactForce[counter];
+            ++counter;
+        }
     }
 }
 
@@ -220,7 +243,7 @@ void btDeformableBodySolver::computeStep(TVStack& ddv, const TVStack& residual)
     if (m_useProjection)
         m_cg.solve(*m_objective, ddv, residual, false);
     else
-        m_cr.solve(*m_objective, ddv, residual, true);
+        m_cr.solve(*m_objective, ddv, residual, false);
 }
 
 void btDeformableBodySolver::reinitialize(const btAlignedObjectArray<btSoftBody *>& softBodies, btScalar dt)
@@ -279,6 +302,7 @@ void btDeformableBodySolver::updateVelocity()
             counter += psb->m_nodes.size();
             continue;
         }
+        int max_id = -1;
         for (int j = 0; j < psb->m_nodes.size(); ++j)
         {
             // set NaN to zero;
@@ -286,8 +310,10 @@ void btDeformableBodySolver::updateVelocity()
             {
                 m_dv[counter].setZero();
             }
-            psb->m_nodes[j].m_v = m_backupVelocity[counter]+m_dv[counter];
-            psb->m_maxSpeedSquared = btMax(psb->m_maxSpeedSquared, psb->m_nodes[j].m_v.length2());
+            psb->m_nodes[j].m_v = m_backupVelocity[counter] + m_dv[counter] - psb->m_nodes[j].m_splitv;
+            if ((psb->m_nodes[j].m_v + psb->m_nodes[j].m_splitv).length2()  >psb->m_maxSpeedSquared)
+                max_id = j;
+            psb->m_maxSpeedSquared = btMax(psb->m_maxSpeedSquared, (psb->m_nodes[j].m_v + psb->m_nodes[j].m_splitv).length2());
             ++counter;
         }
     }
@@ -349,7 +375,7 @@ void btDeformableBodySolver::setupDeformableSolve(bool implicit)
             }
             else
             {
-                m_dv[counter] =  psb->m_nodes[j].m_v - m_backupVelocity[counter];
+                m_dv[counter] =  psb->m_nodes[j].m_v + psb->m_nodes[j].m_splitv - m_backupVelocity[counter];
             }
             psb->m_nodes[j].m_v = m_backupVelocity[counter];
             ++counter;
@@ -387,7 +413,41 @@ bool btDeformableBodySolver::updateNodes()
 void btDeformableBodySolver::predictMotion(btScalar solverdt)
 {
     // apply explicit forces to velocity
-    m_objective->applyExplicitForce(m_residual);
+//    m_objective->applyExplicitForce(m_residual);
+    
+    m_objective->m_elasticSolve = true;
+    m_objective->computeExplicitForces(solverdt, m_residual);
+    m_objective->m_preconditioner = m_objective->m_massPreconditioner;
+    m_cg.solve(*m_objective, m_dv, m_residual);
+    m_objective->m_preconditioner = m_objective->m_KKTPreconditioner;
+    int counter = 0;
+    for (int i = 0; i < m_softBodies.size(); ++i)
+    {
+        btSoftBody* psb = m_softBodies[i];
+        if (!psb->isActive())
+        {
+            counter += psb->m_nodes.size();
+            continue;
+        }
+        for (int j = 0; j < psb->m_nodes.size(); ++j)
+        {
+            // set NaN to zero;
+//            printf("m_dv[%d] = %f, %f, %f\n", counter, m_dv[counter][0], m_dv[counter][1],m_dv[counter][2]);
+            if (m_dv[counter] != m_dv[counter])
+            {
+                m_dv[counter].setZero();
+            }
+            psb->m_nodes[j].m_v += m_dv[counter];
+            ++counter;
+        }
+    }
+    m_objective->m_elasticSolve = false;
+    for (int i = 0; i < m_numNodes; ++i)
+    {
+        m_dv[i].setZero();
+        m_residual[i].setZero();
+    }
+    
     for (int i = 0; i < m_softBodies.size(); ++i)
     {
         btSoftBody *psb = m_softBodies[i];
@@ -429,6 +489,8 @@ void btDeformableBodySolver::predictDeformableMotion(btSoftBody* psb, btScalar d
     /* Integrate            */
     // do not allow particles to move more than the bounding box size
     btScalar max_v = (psb->m_bounds[1]-psb->m_bounds[0]).norm() / dt;
+//    int max_id = -1;
+//    btVector3 high_speed(0,0,0);
     for (i = 0, ni = psb->m_nodes.size(); i < ni; ++i)
     {
         btSoftBody::Node& n = psb->m_nodes[i];
@@ -440,9 +502,21 @@ void btDeformableBodySolver::predictDeformableMotion(btSoftBody* psb, btScalar d
             n.m_v.safeNormalize();
             n.m_v *= max_v;
         }
-        n.m_q = n.m_x + n.m_v * dt;
+        n.m_q = n.m_x + (n.m_v  + n.m_contactDv)* dt;
+//        if (n.m_v.safeNorm() > high_speed.safeNorm())
+//        {
+//            high_speed = n.m_v;
+//        }
+        n.m_splitv.setZero();
+        n.m_contactDv.setZero();
+        n.m_splitv_count=0;
+        n.m_splitv_tmp.setZero();
         n.m_penetration = 0;
     }
+//    if (high_speed.safeNorm() > 3)
+//    {
+//        printf("explicit v = %f, %f, %f\n", high_speed[0],high_speed[1], high_speed[2]);
+//    }
 
     /* Nodes                */
     psb->updateNodeTree(true, true);

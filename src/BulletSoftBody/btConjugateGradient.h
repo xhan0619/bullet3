@@ -30,9 +30,9 @@ class btConjugateGradient
     btScalar tolerance_squared;
 public:
     btConjugateGradient(const int max_it_in)
-    : max_iterations(max_it_in)
+    : max_iterations(10)
     {
-       tolerance_squared = 1e-5;
+       tolerance_squared = 0;
     }
     
     virtual ~btConjugateGradient(){}

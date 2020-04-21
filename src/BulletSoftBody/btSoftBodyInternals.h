@@ -1819,6 +1819,20 @@ struct btSoftColliders
                             c.t2 = t2;
                         }
                     }
+                    btSoftBody::Face* face = c.m_face;
+                    for (int j = 0; j < face->m_contactList.size(); ++j)
+                    {
+                        if (c.m_cti.m_colObj == face->m_contactList[j]->m_cti.m_colObj)
+                        {
+                            btVector3& n1 = c.m_cti.m_normal;
+                            btVector3& n2 = face->m_contactList[j]->m_cti.m_normal;
+                            if (n1.dot(n2) < -0.7)
+                            {
+                                printf("flipped normal, %f\n", n1.dot(n2));
+                                n1 = n2;
+                            }
+                        }
+                    }
                     psb->m_faceRigidContacts.push_back(c);
                 }
             }

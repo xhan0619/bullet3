@@ -152,6 +152,8 @@ public:
     // used in line search
     btScalar kineticEnergy();
     
+    void calculateContactForce(const TVStack& rhs);
+    
     // unused functions
     virtual void optimize(btAlignedObjectArray<btSoftBody *> &softBodies, bool forceUpdate = false){}
     virtual void solveConstraints(btScalar dt){}

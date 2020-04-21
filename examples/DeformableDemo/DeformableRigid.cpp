@@ -57,7 +57,7 @@ public:
     
     void Ctor_RbUpStack(int count)
     {
-        float mass = .2;
+        float mass = 2000;
         
         btCompoundShape* cylinderCompound = new btCompoundShape;
         btCollisionShape* cylinderShape = new btCylinderShapeX(btVector3(2, .5, .5));
@@ -71,7 +71,7 @@ public:
         cylinderCompound->addChildShape(localTransform, cylinderShape);
         
         btCollisionShape* shape[] = {
-            new btBoxShape(btVector3(1, 1, 1)),
+            new btBoxShape(btVector3(3.5, 1, 3.5)),
             new btSphereShape(0.75),
             cylinderCompound
         };
@@ -86,16 +86,18 @@ public:
 //        }
         btTransform startTransform;
         startTransform.setIdentity();
-        startTransform.setOrigin(btVector3(1, 1.5, 1));
-        createRigidBody(mass, startTransform, shape[0]);
-        startTransform.setOrigin(btVector3(1, 1.5, -1));
-        createRigidBody(mass, startTransform, shape[0]);
-        startTransform.setOrigin(btVector3(-1, 1.5, 1));
-        createRigidBody(mass, startTransform, shape[0]);
-        startTransform.setOrigin(btVector3(-1, 1.5, -1));
-        createRigidBody(mass, startTransform, shape[0]);
-        startTransform.setOrigin(btVector3(0, 3.5, 0));
-        createRigidBody(mass, startTransform, shape[0]);
+//        startTransform.setOrigin(btVector3(1, 1.5, 1));
+//        createRigidBody(mass, startTransform, shape[0]);
+//        startTransform.setOrigin(btVector3(1, 1.5, -1));
+//        createRigidBody(mass, startTransform, shape[0]);
+//        startTransform.setOrigin(btVector3(-1, 1.5, 1));
+//        createRigidBody(mass, startTransform, shape[0]);
+//        startTransform.setOrigin(btVector3(-1, 1.5, -1));
+//        createRigidBody(mass, startTransform, shape[0]);
+//        startTransform.setOrigin(btVector3(0, 3.5, 0));
+//        createRigidBody(mass, startTransform, shape[0]);
+//        startTransform.setOrigin(btVector3(0, 7.5, 0));
+//        createRigidBody(mass, startTransform, shape[0]);
     }
     
     virtual const btDeformableMultiBodyDynamicsWorld* getDeformableDynamicsWorld() const
@@ -167,7 +169,7 @@ void DeformableRigid::initPhysics()
 
         btTransform groundTransform;
         groundTransform.setIdentity();
-        groundTransform.setOrigin(btVector3(0, -42, 0));
+        groundTransform.setOrigin(btVector3(0, -32, 0));
         groundTransform.setRotation(btQuaternion(btVector3(1, 0, 0), SIMD_PI * 0.));
         //We can also use DemoApplication::localCreateRigidBody, but for clarity it is provided here:
         btScalar mass(0.);
@@ -194,16 +196,16 @@ void DeformableRigid::initPhysics()
     {
         bool onGround = false;
         const btScalar s = 4;
-        const btScalar h = 0;
+        const btScalar h = 6;
         
         btSoftBody* psb = btSoftBodyHelpers::CreatePatch(getDeformableDynamicsWorld()->getWorldInfo(), btVector3(-s, h, -s),
                                                          btVector3(+s, h, -s),
                                                          btVector3(-s, h, +s),
                                                          btVector3(+s, h, +s),
-//                                                         3,3,
-                                                         20,20,
-                                                         1 + 2 + 4 + 8, true);
-//                                                          0, true);
+                                                         2,2,
+//                                                         20,20,
+//                                                         1 + 2 + 4 + 8, true);
+                                                          0, true);
 
         if (onGround)
             psb = btSoftBodyHelpers::CreatePatch(getDeformableDynamicsWorld()->getWorldInfo(), btVector3(-s, 0, -s),
@@ -214,7 +216,7 @@ void DeformableRigid::initPhysics()
                                                  2,2,
                                                  0, true);
         
-        psb->getCollisionShape()->setMargin(0.1);
+        psb->getCollisionShape()->setMargin(0.3);
         psb->generateBendingConstraints(2);
         psb->setTotalMass(1);
         psb->m_cfg.kKHR = 1; // collision hardness with kinematic objects

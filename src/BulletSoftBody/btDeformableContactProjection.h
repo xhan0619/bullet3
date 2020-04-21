@@ -24,6 +24,7 @@
 #include "LinearMath/btReducedVector.h"
 #include "LinearMath/btModifiedGramSchmidt.h"
 #include <vector>
+#include <unordered_set>
 
 struct LagrangeMultiplier
 {
@@ -64,10 +65,14 @@ public:
 	btAlignedObjectArray<btAlignedObjectArray<btDeformableNodeAnchorConstraint> > m_nodeAnchorConstraints;
     
     bool m_useStrainLimiting;
-    
+    bool verbose;
+    unsigned long m_btSeed;
+    std::unordered_set<btSoftBody::Link*> m_dampers;
     btDeformableContactProjection(btAlignedObjectArray<btSoftBody *>& softBodies)
     : m_softBodies(softBodies)
     {
+        verbose = false;
+        m_btSeed = 0;
     }
     
     virtual ~btDeformableContactProjection()
@@ -82,6 +87,9 @@ public:
     
     // update and solve the constraints
     virtual btScalar update(btCollisionObject** deformableBodies,int numDeformableBodies, const btContactSolverInfo& infoGlobal);
+    btScalar cleanUp(btCollisionObject** deformableBodies,int numDeformableBodies, const btContactSolverInfo& infoGlobal);
+    btScalar solveSplitImpulse(btCollisionObject** deformableBodies,int numDeformableBodies, const btContactSolverInfo& infoGlobal);
+    void resetDv(btCollisionObject** deformableBodies,int numDeformableBodies, const btContactSolverInfo& infoGlobal);
     
     // Add constraints to m_constraints. In addition, the constraints that each vertex own are recorded in m_constraintsDict.
     virtual void setConstraints(const btContactSolverInfo& infoGlobal);
@@ -96,5 +104,41 @@ public:
     virtual void setLagrangeMultiplier();
     
     void checkConstraints(const TVStack& x);
+    
+    unsigned long btRand()
+    {
+        m_btSeed = (1664525L * m_btSeed + 1013904223L) & 0xffffffff;
+        return m_btSeed;
+    }
+    int btRandInt(int n)
+    {
+        // seems good; xor-fold and modulus
+        const unsigned long un = static_cast<unsigned long>(n);
+        unsigned long r = btRand();
+        
+        // note: probably more aggressive than it needs to be -- might be
+        //       able to get away without one or two of the innermost branches.
+        if (un <= 0x00010000UL)
+        {
+            r ^= (r >> 16);
+            if (un <= 0x00000100UL)
+            {
+                r ^= (r >> 8);
+                if (un <= 0x00000010UL)
+                {
+                    r ^= (r >> 4);
+                    if (un <= 0x00000004UL)
+                    {
+                        r ^= (r >> 2);
+                        if (un <= 0x00000002UL)
+                        {
+                            r ^= (r >> 1);
+                        }
+                    }
+                }
+            }
+        }
+        return (int)(r % un);
+    }
 };
 #endif /* btDeformableContactProjection_h */

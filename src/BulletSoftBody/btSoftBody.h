@@ -272,6 +272,10 @@ public:
 		btScalar m_penetration;   // depth of penetration
 		int m_battach : 1;   // Attached
         int index;
+        btVector3 m_splitv;
+        btVector3 m_splitv_tmp;
+        btVector3 m_contactDv;
+        int m_splitv_count;
 	};
 	/* Link			*/
 	ATTRIBUTE_ALIGNED16(struct)
@@ -288,6 +292,7 @@ public:
 		BT_DECLARE_ALIGNED_ALLOCATOR();
 	};
 	/* Face			*/
+    class DeformableFaceRigidContact;
 	struct Face : Feature
 	{
 		Node* m_n[3];        // Node pointers
@@ -297,6 +302,7 @@ public:
         btVector4 m_pcontact; // barycentric weights of the persistent contact
         btVector3 m_n0, m_n1, m_vn;
         int m_index;
+        btAlignedObjectArray<DeformableFaceRigidContact*> m_contactList;
 	};
 	/* Tetra		*/
 	struct Tetra : Feature

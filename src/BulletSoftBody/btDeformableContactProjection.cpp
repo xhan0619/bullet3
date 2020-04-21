@@ -15,6 +15,7 @@
 
 #include "btDeformableContactProjection.h"
 #include "btDeformableMultiBodyDynamicsWorld.h"
+#include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolver.h"
 #include <algorithm>
 #include <cmath>
 btScalar btDeformableContactProjection::update(btCollisionObject** deformableBodies,int numDeformableBodies, const btContactSolverInfo& infoGlobal)
@@ -46,14 +47,15 @@ btScalar btDeformableContactProjection::update(btCollisionObject** deformableBod
 			{
 				btDeformableFaceRigidContactConstraint& constraint = m_faceRigidConstraints[j][k];
 				btScalar localResidualSquare = constraint.solveConstraint(infoGlobal);
-				// printf("Constraint %d, penetration = %f, residual = %f \n", k, constraint.m_penetration, localResidualSquare);
+				if (verbose)
+				 printf("Constraint %d, penetration = %f, residual = %f \n", k, constraint.m_penetration, localResidualSquare);
 				residualSquare = btMax(residualSquare, localResidualSquare);
 			}
-			for (int k = 0; k < m_faceRigidConstraints[j].size(); ++k)
-			{
-				btDeformableFaceRigidContactConstraint& constraint = m_faceRigidConstraints[j][k];
-				constraint.updatePenetration();
-			}
+//            for (int k = 0; k < m_faceRigidConstraints[j].size(); ++k)
+//            {
+//                btDeformableFaceRigidContactConstraint& constraint = m_faceRigidConstraints[j][k];
+//                constraint.updatePenetration();
+//            }
 			// printf("===========================\n");
 			for (int k = 0; k < m_deformableConstraints[j].size(); ++k)
 			{
@@ -64,6 +66,83 @@ btScalar btDeformableContactProjection::update(btCollisionObject** deformableBod
 		}
 	}
 	return residualSquare;
+}
+
+btScalar btDeformableContactProjection::solveSplitImpulse(btCollisionObject** deformableBodies,int numDeformableBodies, const btContactSolverInfo& infoGlobal)
+{
+    btScalar residualSquare = 0;
+    for (int i = 0; i < numDeformableBodies; ++i)
+    {
+        for (int j = 0; j < m_softBodies.size(); ++j)
+        {
+            btCollisionObject* psb = m_softBodies[j];
+            if (psb != deformableBodies[i])
+            {
+                continue;
+            }
+            for (int k = 0; k < m_faceRigidConstraints[j].size(); ++k)
+            {
+                btDeformableFaceRigidContactConstraint& constraint = m_faceRigidConstraints[j][k];
+                btScalar localResidualSquare = constraint.solveSplitImpulse(infoGlobal);
+                residualSquare = btMax(residualSquare, localResidualSquare);
+            }
+//            for (int k = 0; k < m_softBodies[j]->m_nodes.size(); ++k)
+//            {
+//                btSoftBody::Node& node = m_softBodies[j]->m_nodes[k];
+//                if (node.m_splitv_count > 0)
+//                {
+//                    node.m_splitv += node.m_splitv_tmp / node.m_splitv_count;
+//                    node.m_splitv_tmp.setZero();
+//                    node.m_splitv_count=0;
+//                }
+//            }
+        }
+    }
+    return residualSquare;
+}
+
+void btDeformableContactProjection::resetDv(btCollisionObject** deformableBodies,int numDeformableBodies, const btContactSolverInfo& infoGlobal)
+{
+    for (int i = 0; i < numDeformableBodies; ++i)
+    {
+        for (int j = 0; j < m_softBodies.size(); ++j)
+        {
+            btCollisionObject* psb = m_softBodies[j];
+            if (psb != deformableBodies[i])
+            {
+                continue;
+            }
+            for (int k = 0; k < m_faceRigidConstraints[j].size(); ++k)
+            {
+                btDeformableFaceRigidContactConstraint& constraint = m_faceRigidConstraints[j][k];
+                constraint.m_total_normal_dv.setZero();
+                constraint.m_total_tangent_dv.setZero();
+            }
+        }
+    }
+}
+
+btScalar btDeformableContactProjection::cleanUp(btCollisionObject** deformableBodies,int numDeformableBodies, const btContactSolverInfo& infoGlobal)
+{
+    btScalar residualSquare = 0;
+    for (int i = 0; i < numDeformableBodies; ++i)
+    {
+        for (int j = 0; j < m_softBodies.size(); ++j)
+        {
+            btCollisionObject* psb = m_softBodies[j];
+            if (psb != deformableBodies[i])
+            {
+                continue;
+            }
+            for (int k = 0; k < m_faceRigidConstraints[j].size(); ++k)
+            {
+                btDeformableFaceRigidContactConstraint& constraint = m_faceRigidConstraints[j][k];
+                btScalar localResidualSquare = constraint.cleanUp(infoGlobal);
+                residualSquare = btMax(residualSquare, localResidualSquare);
+            }
+        }
+    }
+    return residualSquare;
 }
 
 void btDeformableContactProjection::splitImpulseSetup(const btContactSolverInfo& infoGlobal)
@@ -141,6 +220,14 @@ void btDeformableContactProjection::setConstraints(const btContactSolverInfo& in
 			}
 		}
 		
+        for (int j = 0; j < psb->m_faces.size(); ++j)
+        {
+            for (int k = 0; k < psb->m_faces[j].m_contactList.size(); ++k)
+            {
+                delete psb->m_faces[j].m_contactList[k];
+            }
+            psb->m_faces[j].m_contactList.clear();
+        }
 		// set Deformable Face vs. Rigid constraint
 		for (int j = 0; j < psb->m_faceRigidContacts.size(); ++j)
 		{
@@ -159,6 +246,8 @@ void btDeformableContactProjection::setConstraints(const btContactSolverInfo& in
 			if (dn < SIMD_EPSILON)
 			{
 				m_faceRigidConstraints[i].push_back(constraint);
+                btSoftBody::DeformableFaceRigidContact* tmp = new btSoftBody::DeformableFaceRigidContact(contact);
+                contact.m_face->m_contactList.push_back(tmp);
 			}
 		}
 	}

@@ -215,6 +215,8 @@ public:
     // get the velocity of the deformable face at the contact point
     virtual btVector3 getVb() const;
     
+    virtual btVector3 getSplitVb() const;
+    
     // get the velocity change of the input soft body node in the constraint
     virtual btVector3 getDv(const btSoftBody::Node*) const;
     
@@ -226,7 +228,10 @@ public:
     
     virtual void applyImpulse(const btVector3& impulse);
     
-    void updatePenetration();
+    void updatePenetration(const btContactSolverInfo& infoGlobal);
+    btScalar cleanUp(const btContactSolverInfo& infoGlobal);
+    btScalar solveSplitImpulse(const btContactSolverInfo& infoGlobal);
+    void applySplitImpulse(const btVector3& impulse);
 };
 
 //

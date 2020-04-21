@@ -2907,6 +2907,7 @@ bool btSoftBody::checkDeformableFaceContact(const btCollisionObjectWrapper* colO
 //
     
     // regular face contact
+    if(0)
     {
         btGjkEpaSolver2::sResults results;
         btTransform triangle_transform;
@@ -2920,15 +2921,40 @@ bool btSoftBody::checkDeformableFaceContact(const btCollisionObjectWrapper* colO
         dst -= margin;
         if (dst >= 0)
             return false;
-        contact_point = results.witnesses[0];
-        getBarycentric(contact_point, f.m_n[0]->m_q, f.m_n[1]->m_q, f.m_n[2]->m_q, bary);
-        btVector3 curr = BaryEval(f.m_n[0]->m_x, f.m_n[1]->m_x, f.m_n[2]->m_x, bary);
         nrm = results.normal;
         cti.m_colObj = colObjWrap->getCollisionObject();
         cti.m_normal = nrm;
+        contact_point = results.witnesses[0];
+        getBarycentric(contact_point, f.m_n[0]->m_q, f.m_n[1]->m_q, f.m_n[2]->m_q, bary);
+        btVector3 curr = BaryEval(f.m_n[0]->m_x, f.m_n[1]->m_x, f.m_n[2]->m_x, bary);
         cti.m_offset = dst + (curr - contact_point).dot(nrm);
     }
-    return (dst < 0);
+    if(1)
+    {
+        btGjkEpaSolver2::sResults results;
+        btTransform triangle_transform;
+        triangle_transform.setIdentity();
+        triangle_transform.setOrigin(f.m_n[0]->m_q);
+        btTriangleShape triangle(btVector3(0,0,0), f.m_n[1]->m_q-f.m_n[0]->m_q, f.m_n[2]->m_q-f.m_n[0]->m_q);
+        btVector3 guess(0,0,0);
+        const btConvexShape* csh = static_cast<const btConvexShape*>(shp);
+        btGjkEpaSolver2::SignedDistance(&triangle, triangle_transform, csh, wtr, guess, results);
+        dst = results.distance-csh->getMargin();
+        dst -= margin;
+        if (dst >= 0)
+            return false;
+        wtr = colObjWrap->getWorldTransform();
+        btTriangleShape triangle2(btVector3(0,0,0), f.m_n[1]->m_x-f.m_n[0]->m_x, f.m_n[2]->m_x-f.m_n[0]->m_x);
+        triangle_transform.setOrigin(f.m_n[0]->m_x);
+        btGjkEpaSolver2::SignedDistance(&triangle2, triangle_transform, csh, wtr, guess, results);
+        nrm = results.normal;
+        cti.m_colObj = colObjWrap->getCollisionObject();
+        cti.m_normal = nrm;
+        contact_point = results.witnesses[0];
+        getBarycentric(contact_point, f.m_n[0]->m_x, f.m_n[1]->m_x, f.m_n[2]->m_x, bary);
+        cti.m_offset = results.distance-csh->getMargin()-margin;
+    }
+    return true;
 }
 
 //

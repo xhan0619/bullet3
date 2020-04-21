@@ -59,9 +59,11 @@ static bool supportsJointMotor(btMultiBody* mb, int mbLinkIndex)
 class GraspDeformable : public CommonDeformableBodyBase
 {
     btAlignedObjectArray<btDeformableLagrangianForce*> m_forces;
+//    int count;
 public:
 	GraspDeformable(struct GUIHelperInterface* helper)
     :CommonDeformableBodyBase(helper)
+//    , count(0)
 	{
 	}
 	virtual ~GraspDeformable()
@@ -88,6 +90,9 @@ public:
     
     void stepSimulation(float deltaTime)
     {
+//        count++;
+//        if (count > 600)
+//            getDeformableDynamicsWorld()->getSolverInfo().m_deformable_erp = 0;
         double fingerTargetVelocities[2] = {sGripperVerticalVelocity, sGripperClosingTargetVelocity};
         int num_multiBody = getDeformableDynamicsWorld()->getNumMultibodies();
         for (int i = 0; i < num_multiBody; ++i)
@@ -120,8 +125,8 @@ public:
         }
         
         //use a smaller internal timestep, there are stability issues
-        float internalTimeStep = 1. / 240.f;
-        m_dynamicsWorld->stepSimulation(deltaTime, 4, internalTimeStep);
+        float internalTimeStep = 1. / 480.f;
+        m_dynamicsWorld->stepSimulation(deltaTime, 8, internalTimeStep);
     }
     
     void createGrip()
@@ -208,7 +213,7 @@ void GraspDeformable::initPhysics()
         bool canSleep = false;
         bool selfCollide = true;
         int numLinks = 2;
-        btVector3 linkHalfExtents(.1, .2, .02);
+        btVector3 linkHalfExtents(0.1, .2, .02);
         btVector3 baseHalfExtents(.1, 0.02, .01);
         btMultiBody* mbC = createFeatherstoneMultiBody(getDeformableDynamicsWorld(), btVector3(0.f, .7f,0.f), linkHalfExtents, baseHalfExtents, false);
         
@@ -309,7 +314,7 @@ void GraspDeformable::initPhysics()
 //        psb->scale(btVector3(.3, .3, .3));  // for tube, torus, boot
 //        psb->scale(btVector3(.1, .1, .1));  // for ditto
 //        psb->translate(btVector3(.25, 10, 0.4));
-        psb->getCollisionShape()->setMargin(0.0005);
+        psb->getCollisionShape()->setMargin(0.01);
         psb->setMaxStress(50);
         psb->setTotalMass(.1);
         psb->m_cfg.kKHR = 1; // collision hardness with kinematic objects
@@ -340,7 +345,7 @@ void GraspDeformable::initPhysics()
                                                          btVector3(+s, h, -s),
                                                          btVector3(-s, h, +s),
                                                          btVector3(+s, h, +s),
-                                                         10,10,
+                                                         12,12,
                                                                   0, true);
 
         if (onGround)
@@ -352,7 +357,7 @@ void GraspDeformable::initPhysics()
                                                  2,2,
                                                  0, true);
 
-        psb->getCollisionShape()->setMargin(0.01);
+        psb->getCollisionShape()->setMargin(0.005);
         psb->generateBendingConstraints(2);
         psb->setTotalMass(.01);
         psb->setSpringStiffness(10);
@@ -366,7 +371,7 @@ void GraspDeformable::initPhysics()
 //        psb->m_cfg.collisions |= btSoftBody::fCollision::VF_DD;
         getDeformableDynamicsWorld()->addSoftBody(psb);
 //        getDeformableDynamicsWorld()->addForce(psb, new btDeformableMassSpringForce(.0,0.0, true));
-        getDeformableDynamicsWorld()->addForce(psb, new btDeformableMassSpringForce(.2,.02, true));
+        getDeformableDynamicsWorld()->addForce(psb, new btDeformableMassSpringForce(.2,.02, true, 0.05));
         getDeformableDynamicsWorld()->addForce(psb, new btDeformableGravityForce(gravity));
     }
     

@@ -22,10 +22,11 @@ btDeformableBackwardEulerObjective::btDeformableBackwardEulerObjective(btAligned
 , m_projection(softBodies)
 , m_backupVelocity(backup_v)
 , m_implicit(false)
+, m_elasticSolve(false)
 {
     m_massPreconditioner = new MassPreconditioner(m_softBodies);
     m_KKTPreconditioner = new KKTPreconditioner(m_softBodies, m_projection, m_lf, m_dt, m_implicit);
-    m_preconditioner = m_KKTPreconditioner;
+    m_preconditioner = m_massPreconditioner;
 }
 
 btDeformableBackwardEulerObjective::~btDeformableBackwardEulerObjective()
@@ -73,40 +74,49 @@ void btDeformableBackwardEulerObjective::multiply(const TVStack& x, TVStack& b) 
             ++counter;
         }
     }
-
-    for (int i = 0; i < m_lf.size(); ++i)
+    if (m_elasticSolve)
     {
-        // add damping matrix
-        m_lf[i]->addScaledDampingForceDifferential(-m_dt, x, b);
-        if (m_implicit)
+        for (int i = 0; i < m_lf.size(); ++i)
         {
-             m_lf[i]->addScaledElasticForceDifferential(-m_dt*m_dt, x, b);
+            m_lf[i]->addScaledElasticForceDifferential(-m_dt*m_dt, x, b);
         }
     }
-    int offset = m_nodes.size();
-    for (int i = offset; i < b.size(); ++i)
+    else
     {
-        b[i].setZero();
-    }
-    // add in the lagrange multiplier terms
-    
-    for (int c = 0; c < m_projection.m_lagrangeMultipliers.size(); ++c)
-    {
-        // C^T * lambda
-        const LagrangeMultiplier& lm = m_projection.m_lagrangeMultipliers[c];
-        for (int i = 0; i < lm.m_num_nodes; ++i)
+        for (int i = 0; i < m_lf.size(); ++i)
         {
-            for (int j = 0; j < lm.m_num_constraints; ++j)
+            // add damping matrix
+            m_lf[i]->addScaledDampingForceDifferential(-m_dt, x, b);
+            if (m_implicit)
             {
-                b[lm.m_indices[i]] += x[offset+c][j] * lm.m_weights[i] * lm.m_dirs[j];
+                 m_lf[i]->addScaledElasticForceDifferential(-m_dt*m_dt, x, b);
             }
         }
-        // C * x
-        for (int d = 0; d < lm.m_num_constraints; ++d)
+        int offset = m_nodes.size();
+        for (int i = offset; i < b.size(); ++i)
         {
+            b[i].setZero();
+        }
+        // add in the lagrange multiplier terms
+        
+        for (int c = 0; c < m_projection.m_lagrangeMultipliers.size(); ++c)
+        {
+            // C^T * lambda
+            const LagrangeMultiplier& lm = m_projection.m_lagrangeMultipliers[c];
             for (int i = 0; i < lm.m_num_nodes; ++i)
             {
-                b[offset+c][d] += lm.m_weights[i] * x[lm.m_indices[i]].dot(lm.m_dirs[d]);
+                for (int j = 0; j < lm.m_num_constraints; ++j)
+                {
+                    b[lm.m_indices[i]] += x[offset+c][j] * lm.m_weights[i] * lm.m_dirs[j];
+                }
+            }
+            // C * x
+            for (int d = 0; d < lm.m_num_constraints; ++d)
+            {
+                for (int i = 0; i < lm.m_num_nodes; ++i)
+                {
+                    b[offset+c][d] += lm.m_weights[i] * x[lm.m_indices[i]].dot(lm.m_dirs[d]);
+                }
             }
         }
     }
@@ -165,6 +175,14 @@ void btDeformableBackwardEulerObjective::computeResidual(btScalar dt, TVStack &r
         }
     }
 //    m_projection.project(residual);
+}
+
+void btDeformableBackwardEulerObjective::computeExplicitForces(btScalar dt, TVStack &residual)
+{
+    for (int i = 0; i < m_lf.size(); ++i)
+    {
+        m_lf[i]->addScaledExplicitForce(dt, residual);
+    }
 }
 
 btScalar btDeformableBackwardEulerObjective::computeNorm(const TVStack& residual) const
